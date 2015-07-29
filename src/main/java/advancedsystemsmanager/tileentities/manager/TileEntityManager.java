@@ -183,6 +183,7 @@ public class TileEntityManager extends TileEntity implements ITileInterfaceProvi
     private FlowComponent removeComponent(int idToRemove)
     {
         FlowComponent removed = components.get(idToRemove);
+        removed.onRemove();
         components.remove(idToRemove);
         if (selectedGroup == removed)
         {

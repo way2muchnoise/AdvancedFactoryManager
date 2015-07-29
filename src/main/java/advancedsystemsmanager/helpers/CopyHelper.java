@@ -44,7 +44,7 @@ public class CopyHelper
     private static void copyCommandsWithChildren(TileEntityManager manager, Map<FlowComponent, FlowComponent> added, FlowComponent toCopy, FlowComponent newParent,
                                                  Multimap<FlowComponent, FlowComponent> existingParents, boolean reset)
     {
-        FlowComponent newComponent = toCopy.copy();
+        FlowComponent newComponent = toCopy.copy(manager.getNextFreeID());
         newComponent.clearConnections();
         newComponent.setParent(newParent);
         if (reset)
@@ -53,7 +53,6 @@ public class CopyHelper
             newComponent.setX(FlowComponent.COMPONENT_START_X);
             newComponent.setY(FlowComponent.COMPONENT_START_Y);
         }
-        newComponent.setId(manager.getNextFreeID());
         added.put(toCopy, newComponent);
         for (FlowComponent component : existingParents.get(toCopy))
         {

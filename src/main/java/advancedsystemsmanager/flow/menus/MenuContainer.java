@@ -8,6 +8,7 @@ import advancedsystemsmanager.flow.FlowComponent;
 import advancedsystemsmanager.flow.elements.RadioButtonList;
 import advancedsystemsmanager.flow.elements.ScrollController;
 import advancedsystemsmanager.flow.elements.Variable;
+import advancedsystemsmanager.flow.execution.commands.CommandBase;
 import advancedsystemsmanager.gui.GuiBase;
 import advancedsystemsmanager.gui.GuiManager;
 import advancedsystemsmanager.gui.IAdvancedTooltip;
@@ -17,6 +18,7 @@ import advancedsystemsmanager.helpers.LocalizationHelper;
 import advancedsystemsmanager.network.ASMPacket;
 import advancedsystemsmanager.reference.Names;
 import advancedsystemsmanager.registry.ThemeHandler;
+import advancedsystemsmanager.tileentities.TileEntityAENode;
 import advancedsystemsmanager.tileentities.manager.TileEntityManager;
 import advancedsystemsmanager.util.SystemCoord;
 import cpw.mods.fml.relauncher.Side;
@@ -172,15 +174,20 @@ public class MenuContainer extends Menu implements IPacketSync
                 } else
                 {
                     long id = iContainerSelection.getId();
+                    TileEntityAENode AENode = null;
+                    if (iContainerSelection instanceof SystemCoord)
+                        if (((SystemCoord) iContainerSelection).getTileEntity() instanceof TileEntityAENode)
+                            AENode = (TileEntityAENode) ((SystemCoord) iContainerSelection).getTileEntity();
                     int index = selectedInventories.indexOf(id);
                     if (index >= 0)
                     {
                         selectedInventories.remove(index);
-                        removeInventory(index);
+                        removeInventory(index, AENode);
                     } else
                     {
+
                         selectedInventories.add(id);
-                        addInventory(id);
+                        addInventory(id, AENode);
                     }
                 }
             }
@@ -542,17 +549,19 @@ public class MenuContainer extends Menu implements IPacketSync
         return ret;
     }
 
-    private void removeInventory(int index)
+    private void removeInventory(int index, TileEntityAENode te)
     {
         ASMPacket packet = getBasePacket(true);
         packet.writeShort(index);
+        packet.writeTileEntity(te);
         packet.sendServerPacket();
     }
 
-    private void addInventory(long inventory)
+    private void addInventory(long inventory, TileEntityAENode te)
     {
         ASMPacket packet = getBasePacket(false);
         packet.writeLong(inventory);
+        packet.writeTileEntity(te);
         packet.sendServerPacket();
     }
 
@@ -795,11 +804,18 @@ public class MenuContainer extends Menu implements IPacketSync
     @Override
     public void copyFrom(Menu menu)
     {
-        setOption(((MenuContainer)menu).getOption());
+        setOption(((MenuContainer) menu).getOption());
         selectedInventories.clear();
-        for (long selectedInventory : ((MenuContainer)menu).selectedInventories)
+        for (SystemCoord coord : CommandBase.getContainers(getParent().getManager(), (MenuContainer)menu))
         {
-            selectedInventories.add(selectedInventory);
+            boolean AEAdd = true;
+            if (coord.getTileEntity() instanceof TileEntityAENode)
+            {
+                TileEntityAENode aeNode = (TileEntityAENode) coord.getTileEntity();
+                AEAdd = aeNode.addNode(getParent().getId());
+            }
+            if (AEAdd)
+                selectedInventories.add(coord.getId());
         }
     }
 
@@ -915,14 +931,38 @@ public class MenuContainer extends Menu implements IPacketSync
     }
 
     @Override
+    public void onRemove()
+    {
+        for (SystemCoord coord : CommandBase.getContainers(getParent().getManager(), this))
+        {
+            if (this.selectedInventories.contains(coord.getId()))
+            {
+                TileEntity te = coord.getTileEntity();
+                if (te != null && te instanceof TileEntityAENode)
+                    ((TileEntityAENode) te).removeNode(this.getParent().getId());
+            }
+        }
+    }
+
+    @Override
     public boolean readData(ASMPacket packet)
     {
         if (packet.readBoolean())
         {
-            selectedInventories.remove(packet.readShort());
+            int index = packet.readShort();
+            TileEntity te = packet.readTileEntity();
+            if (te != null && te instanceof TileEntityAENode)
+                ((TileEntityAENode) te).removeNode(this.getParent().getId());
+            selectedInventories.remove(index);
         } else
         {
-            selectedInventories.add(packet.readLong());
+            long id = packet.readLong();
+            TileEntity te = packet.readTileEntity();
+            boolean AEAdd = true;
+            if (te != null && te instanceof TileEntityAENode)
+                AEAdd = ((TileEntityAENode) te).addNode(this.getParent().getId());
+            if (AEAdd)
+            selectedInventories.add(id);
         }
         return false;
     }

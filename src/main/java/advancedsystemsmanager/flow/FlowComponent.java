@@ -1189,7 +1189,7 @@ public class FlowComponent implements Comparable<FlowComponent>, IGuiElement<Gui
         return menus;
     }
 
-    public FlowComponent copy()
+    public FlowComponent copy(int id)
     {
         FlowComponent copy = new FlowComponent(manager, x, y, id, type);
         copy.name = name;
@@ -1595,5 +1595,11 @@ public class FlowComponent implements Comparable<FlowComponent>, IGuiElement<Gui
         packet.writeVarIntToBuffer(parent == null ? -1 : parent.id);
         packet.writeBoolean(shift);
         packet.sendServerPacket();
+    }
+
+    public void onRemove()
+    {
+        for (Menu menu : menus)
+            menu.onRemove();
     }
 }

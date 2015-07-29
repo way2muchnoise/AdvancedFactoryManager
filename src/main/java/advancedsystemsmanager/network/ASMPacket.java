@@ -2,6 +2,7 @@ package advancedsystemsmanager.network;
 
 import advancedsystemsmanager.gui.ContainerBase;
 import advancedsystemsmanager.reference.Reference;
+import advancedsystemsmanager.util.SystemCoord;
 import cpw.mods.fml.common.network.NetworkRegistry.TargetPoint;
 import cpw.mods.fml.common.network.internal.FMLProxyPacket;
 import io.netty.buffer.ByteBuf;
@@ -10,6 +11,8 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.PacketBuffer;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraftforge.common.DimensionManager;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -203,5 +206,18 @@ public class ASMPacket extends PacketBuffer
     public UUID readUUID()
     {
         return new UUID(this.readLong(), this.readLong());
+    }
+
+    public void writeTileEntity(TileEntity te)
+    {
+        this.writeInt(te.getWorldObj().provider.dimensionId);
+        this.writeInt(te.xCoord);
+        this.writeInt(te.yCoord);
+        this.writeInt(te.zCoord);
+    }
+
+    public TileEntity readTileEntity()
+    {
+        return DimensionManager.getWorld(this.readInt()).getTileEntity(this.readInt(), this.readInt(), this.readInt());
     }
 }

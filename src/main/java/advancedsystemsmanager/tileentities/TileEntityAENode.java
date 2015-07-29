@@ -3,9 +3,7 @@ package advancedsystemsmanager.tileentities;
 import advancedsystemsmanager.api.execution.IBufferElement;
 import advancedsystemsmanager.api.tileentities.IInternalInventory;
 import advancedsystemsmanager.api.tileentities.IInternalTank;
-import advancedsystemsmanager.compatibility.appliedenergistics.AEFluidBufferElement;
-import advancedsystemsmanager.compatibility.appliedenergistics.AEHelper;
-import advancedsystemsmanager.compatibility.appliedenergistics.AEItemBufferElement;
+import advancedsystemsmanager.compatibility.appliedenergistics.*;
 import advancedsystemsmanager.flow.execution.ConditionSettingChecker;
 import advancedsystemsmanager.flow.menus.MenuItem;
 import advancedsystemsmanager.flow.menus.MenuLiquid;
@@ -13,7 +11,6 @@ import advancedsystemsmanager.flow.menus.MenuStuff;
 import advancedsystemsmanager.flow.setting.ItemSetting;
 import advancedsystemsmanager.flow.setting.Setting;
 import advancedsystemsmanager.reference.Mods;
-import advancedsystemsmanager.registry.BlockRegistry;
 import advancedsystemsmanager.registry.CommandRegistry;
 import advancedsystemsmanager.util.ClusterMethodRegistration;
 import appeng.api.AEApi;
@@ -22,8 +19,6 @@ import appeng.api.networking.security.IActionHost;
 import appeng.api.storage.data.IAEFluidStack;
 import appeng.api.storage.data.IAEItemStack;
 import appeng.api.util.AECableType;
-import appeng.api.util.AEColor;
-import appeng.api.util.DimensionalCoord;
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Optional;
 import net.minecraft.item.ItemStack;
@@ -39,14 +34,15 @@ import java.util.*;
 public class TileEntityAENode extends TileEntityClusterElement implements IGridHost, IActionHost, IInternalInventory, IInternalTank
 {
     public AEHelper helper;
-    private GridBlock gridBlock;
-    private IGridNode gridNode;
+    private GridBlock<TileEntityAENode> proxyGridBlock;
+    private IGridNode proxyGridNode;
     private IFluidHandler tank;
     private boolean isReady;
+    private GridNodeMap<Integer> gridNodeMap;
 
     public TileEntityAENode()
     {
-        this.gridBlock = new GridBlock();
+        this.proxyGridBlock = new GridBlock<TileEntityAENode>(this).setPowerUsage(0);
         this.tank = new AEFakeTank();
         this.helper = new AEHelper(this);
     }
@@ -61,24 +57,40 @@ public class TileEntityAENode extends TileEntityClusterElement implements IGridH
 
     public IGridNode getNode()
     {
-        if (this.gridNode == null && FMLCommonHandler.instance().getEffectiveSide().isServer() && this.isReady)
+        if (this.proxyGridNode == null && FMLCommonHandler.instance().getEffectiveSide().isServer() && this.isReady)
         {
-            this.gridNode = AEApi.instance().createGridNode(this.gridBlock);
-            this.gridNode.updateState();
+            this.proxyGridNode = AEApi.instance().createGridNode(this.proxyGridBlock);
+            this.proxyGridNode.updateState();
+            if (this.gridNodeMap == null)
+                this.gridNodeMap = new GridNodeMap<Integer>(proxyGridNode);
+            else
+                this.gridNodeMap.reconstruct(proxyGridNode);
         }
+        return this.proxyGridNode;
+    }
 
-        return this.gridNode;
+    public boolean addNode(int id)
+    {
+        return this.gridNodeMap != null && this.gridNodeMap.addNode(id, this);
+    }
+
+    public void removeNode(int id)
+    {
+        if (this.gridNodeMap != null)
+            this.gridNodeMap.removeNode(id);
     }
 
     @Override
     public void invalidate()
     {
         super.invalidate();
-        if (this.gridNode != null)
+        if (this.proxyGridNode != null)
         {
-            this.gridNode.destroy();
-            this.gridNode = null;
+            this.proxyGridNode.destroy();
+            this.proxyGridNode = null;
         }
+        if (this.gridNodeMap != null)
+            this.gridNodeMap.destroy();
     }
 
     @Override
@@ -91,11 +103,13 @@ public class TileEntityAENode extends TileEntityClusterElement implements IGridH
     public void onChunkUnload()
     {
         super.onChunkUnload();
-        if (this.gridNode != null)
+        if (this.proxyGridNode != null)
         {
-            this.gridNode.destroy();
-            this.gridNode = null;
+            this.proxyGridNode.destroy();
+            this.proxyGridNode = null;
         }
+        if (this.gridNodeMap != null)
+            this.gridNodeMap.destroy();
     }
 
     @Override
@@ -178,7 +192,7 @@ public class TileEntityAENode extends TileEntityClusterElement implements IGridH
         }
     }
 
-    private void addAEItemToBuffer(int id, MenuStuff menuItem, Setting<ItemStack> setting, IAEItemStack stack, List<IBufferElement<ItemStack>> itemBuffer)
+    private void addAEItemToBuffer(int id, MenuStuff<ItemStack> menuItem, Setting<ItemStack> setting, IAEItemStack stack, List<IBufferElement<ItemStack>> itemBuffer)
     {
         if (menuItem.useWhiteList() == (setting != null) || setting != null && setting.isLimitedByAmount())
         {
@@ -211,80 +225,11 @@ public class TileEntityAENode extends TileEntityClusterElement implements IGridH
         return elements;
     }
 
-    private void addAEFluidToBuffer(int id, MenuStuff menuLiquid, Setting<Fluid> setting, IAEFluidStack stack, List<IBufferElement<Fluid>> liquidBuffer)
+    private void addAEFluidToBuffer(int id, MenuStuff<Fluid> menuLiquid, Setting<Fluid> setting, IAEFluidStack stack, List<IBufferElement<Fluid>> liquidBuffer)
     {
         if (menuLiquid.useWhiteList() == (setting != null) || setting != null && setting.isLimitedByAmount())
         {
             liquidBuffer.add(new AEFluidBufferElement(id, this, (int)stack.getStackSize(), stack.getFluid(), setting, menuLiquid.useWhiteList()));
-        }
-    }
-
-    private class GridBlock implements IGridBlock
-    {
-        @Override
-        public double getIdlePowerUsage()
-        {
-            return 10;
-        }
-
-        @Override
-        public EnumSet<GridFlags> getFlags()
-        {
-            return EnumSet.of(GridFlags.REQUIRE_CHANNEL);
-        }
-
-        @Override
-        public boolean isWorldAccessible()
-        {
-            return true;
-        }
-
-        @Override
-        public DimensionalCoord getLocation()
-        {
-            return new DimensionalCoord(TileEntityAENode.this);
-        }
-
-        @Override
-        public AEColor getGridColor()
-        {
-            return AEColor.Transparent;
-        }
-
-        @Override
-        public void onGridNotification(GridNotification gridNotification)
-        {
-
-        }
-
-        @Override
-        public void setNetworkStatus(IGrid iGrid, int i)
-        {
-
-        }
-
-        @Override
-        public EnumSet<ForgeDirection> getConnectableSides()
-        {
-            return EnumSet.allOf(ForgeDirection.class);
-        }
-
-        @Override
-        public IGridHost getMachine()
-        {
-            return TileEntityAENode.this;
-        }
-
-        @Override
-        public void gridChanged()
-        {
-
-        }
-
-        @Override
-        public ItemStack getMachineRepresentation()
-        {
-            return new ItemStack(BlockRegistry.cableAENode);
         }
     }
 
