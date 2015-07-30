@@ -24,6 +24,7 @@ import advancedsystemsmanager.network.ASMPacket;
 import advancedsystemsmanager.network.PacketHandler;
 import advancedsystemsmanager.reference.Mods;
 import advancedsystemsmanager.registry.*;
+import advancedsystemsmanager.tileentities.TileEntityAENode;
 import advancedsystemsmanager.tileentities.TileEntityBUD;
 import advancedsystemsmanager.tileentities.TileEntityCluster;
 import advancedsystemsmanager.util.SystemCoord;
@@ -709,6 +710,7 @@ public class TileEntityManager extends TileEntity implements ITileInterfaceProvi
 
     public SystemCoord getInventory(long selected)
     {
+        if (firstInventoryUpdate) updateInventories();
         return network.get(selected);
     }
 
@@ -810,5 +812,16 @@ public class TileEntityManager extends TileEntity implements ITileInterfaceProvi
     public boolean isOfType(ISystemType type)
     {
         return type != RFCompat.RF_RECEIVER || requiresPower();
+    }
+
+    @Override
+    public void invalidate()
+    {
+        super.invalidate();
+        for (SystemCoord coord : getConnectedInventories())
+        {
+            if (coord.getTileEntity() instanceof TileEntityAENode)
+                ((TileEntityAENode) coord.getTileEntity()).removeAllNodes();
+        }
     }
 }

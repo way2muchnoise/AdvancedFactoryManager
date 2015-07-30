@@ -45,4 +45,9 @@ public class CommonProxy implements IRenderRegistry
     {
 
     }
+
+    public boolean isClient()
+    {
+        return false;
+    }
 }

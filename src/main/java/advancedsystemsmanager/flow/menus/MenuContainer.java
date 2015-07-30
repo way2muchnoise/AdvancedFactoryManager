@@ -1,6 +1,7 @@
 package advancedsystemsmanager.flow.menus;
 
 
+import advancedsystemsmanager.AdvancedSystemsManager;
 import advancedsystemsmanager.api.ISystemType;
 import advancedsystemsmanager.api.gui.IContainerSelection;
 import advancedsystemsmanager.api.network.IPacketSync;
@@ -808,14 +809,12 @@ public class MenuContainer extends Menu implements IPacketSync
         selectedInventories.clear();
         for (SystemCoord coord : CommandBase.getContainers(getParent().getManager(), (MenuContainer)menu))
         {
-            boolean AEAdd = true;
+            TileEntityAENode aeNode = null;
             if (coord.getTileEntity() instanceof TileEntityAENode)
-            {
-                TileEntityAENode aeNode = (TileEntityAENode) coord.getTileEntity();
-                AEAdd = aeNode.addNode(getParent().getId());
-            }
-            if (AEAdd)
-                selectedInventories.add(coord.getId());
+                aeNode = (TileEntityAENode) coord.getTileEntity();
+            selectedInventories.add(coord.getId());
+            if (AdvancedSystemsManager.PROXY.isClient())
+                addInventory(coord.getId(), aeNode);
         }
     }
 
@@ -833,6 +832,13 @@ public class MenuContainer extends Menu implements IPacketSync
 
                 long id = selectionTag.getLong(NBT_SELECTION_ID);
 
+                if (!AdvancedSystemsManager.PROXY.isClient())
+                {
+                    SystemCoord coord = getInventory(id);
+                    if (coord.getTileEntity() instanceof TileEntityAENode)
+                        if(((TileEntityAENode) coord.getTileEntity()).addNode(this.id))
+                            selectedInventories.add(id);
+                }
                 selectedInventories.add(id);
             }
         }
@@ -856,7 +862,7 @@ public class MenuContainer extends Menu implements IPacketSync
         }
 
         nbtTagCompound.setTag(NBT_SELECTION, tagList);
-        nbtTagCompound.setByte(NBT_SHARED, (byte)getOption());
+        nbtTagCompound.setByte(NBT_SHARED, (byte) getOption());
     }
 
     @Override
@@ -922,6 +928,11 @@ public class MenuContainer extends Menu implements IPacketSync
     public void setSelectedInventories(List<Long> selectedInventories)
     {
         this.selectedInventories = selectedInventories;
+    }
+
+    private SystemCoord getInventory(long id)
+    {
+        return getParent().getManager().getInventory(id);
     }
 
     @Override

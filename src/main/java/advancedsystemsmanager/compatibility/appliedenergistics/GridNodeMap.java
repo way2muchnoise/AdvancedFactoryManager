@@ -52,6 +52,14 @@ public class GridNodeMap<T>
         gridNodes.remove(id);
     }
 
+    public void clear()
+    {
+        for (IGridNode gridNode : this.gridNodes.values())
+            gridNode.destroy();
+        this.gridNodes.clear();
+        this.gridBlocks.clear();
+    }
+
     public void destroy()
     {
         for (IGridNode gridNode : this.gridNodes.values())

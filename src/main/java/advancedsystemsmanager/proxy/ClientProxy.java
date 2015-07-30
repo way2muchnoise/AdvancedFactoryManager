@@ -56,4 +56,10 @@ public class ClientProxy extends CommonProxy
     {
         ClientRegistry.bindTileEntitySpecialRenderer(tileEntity, renderer);
     }
+
+    @Override
+    public boolean isClient()
+    {
+        return true;
+    }
 }

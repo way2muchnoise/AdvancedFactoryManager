@@ -80,6 +80,12 @@ public class TileEntityAENode extends TileEntityClusterElement implements IGridH
             this.gridNodeMap.removeNode(id);
     }
 
+    public void removeAllNodes()
+    {
+        if (this.gridNodeMap != null)
+            this.gridNodeMap.clear();
+    }
+
     @Override
     public void invalidate()
     {
